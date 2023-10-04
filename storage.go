@@ -1,23 +1,24 @@
 package main
 
 import (
+	"fmt"
 	"database/sql"
-	_"github.com/lib/pq"
+	_ "github.com/lib/pq"
 )
 
 type Storage interface {
 	CreateAccount(*Account) error
 	DeleteAccount(id int) error
 	UpdateAccount(*Account) error
+	GetAccounts()([]*Account, error)
 	GetAccountById(id int) (*Account, error)
 }
-
 
 type PostGressStore struct {
 	db *sql.DB
 }
 
-func NewPostGressStore()(*PostGressStore, error) {
+func NewPostGressStore() (*PostGressStore, error) {
 	connStr := "user=postgres dbname=postgres password=api-golang sslmode=disable"
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -30,7 +31,7 @@ func NewPostGressStore()(*PostGressStore, error) {
 
 	return &PostGressStore{
 		db: db,
-	}, nil 
+	}, nil
 
 }
 
@@ -53,13 +54,16 @@ func (s *PostGressStore) CreateAccountTable() error {
 	return err
 }
 
+func (s *PostGressStore) CreateAccount(acc *Account) error {
+	query := `insert into account (first-name, last_name, number, balance, created_at) values (%1, %2, %3, %4, %5)`
+	resp, err := s.db.Query(query, acc.FirstName, acc.LastName, acc.Number, acc.Balance)
 
+	if err != nil {
+		return err
+	}
 
+	fmt.Printf("%+v\n", resp)
 
-
-
-func (s *PostGressStore) CreateAccount(*Account) error {
-	// resp, err := s.db.Query(`insert into account values ()`)
 	return nil
 }
 
@@ -73,4 +77,28 @@ func (s *PostGressStore) DeleteAccount(id int) error {
 
 func (s *PostGressStore) GetAccountById(id int) (*Account, error) {
 	return nil, nil
+}
+
+
+func (s *PostGressStore) GetAccounts() ([]*Account, error) {
+	rows, err := s.db.Query("select * from account")
+
+	if err != nil {
+		return nil, err
+	}
+
+	accounts := []*Account{}
+
+	for rows.Next() {
+		account := new(Account)
+		err := rows.Scan(&account.ID, &account.FirstName, &account.LastName, &account.Number, &account.Balance, &account.CreatedAt)
+
+		if err != nil {
+			return nil, err
+		}
+	
+		accounts = append(accounts, account)
+	}
+
+	return accounts, nil
 }

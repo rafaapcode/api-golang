@@ -25,7 +25,7 @@ func (s *ApiServer) run() {
 	router := mux.NewRouter()
 
 	router.HandleFunc("/account", makeHttpHandleFunc(s.handleAccount))
-	router.HandleFunc("/account/{id}", makeHttpHandleFunc(s.handleGetAccount))
+	router.HandleFunc("/account/{id}", makeHttpHandleFunc(s.handleGetAccountByID))
 
 	log.Println("Json API server running on port:", s.listenAddr)
 
@@ -35,7 +35,7 @@ func (s *ApiServer) run() {
 func (s *ApiServer) handleAccount(w http.ResponseWriter, r *http.Request) error {
 
 	if r.Method == "GET" {
-		return s.handleGetAccount(w, r)
+		return s.handleGetAccountByID(w, r)
 	}
 
 	if r.Method == "POST" {
@@ -50,8 +50,17 @@ func (s *ApiServer) handleAccount(w http.ResponseWriter, r *http.Request) error 
 }
 
 func (s *ApiServer) handleGetAccount(w http.ResponseWriter, r *http.Request) error {
+	accounts, err := s.store.GetAccounts()
+
+	if err != nil {
+		return err
+	}
+
+	return WriteJSON(w, http.StatusOK, accounts)
+}
+
+func (s *ApiServer) handleGetAccountByID(w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["id"]
-	// account := newAccount("Anton", "Silva")
 
 	fmt.Println(id)
 
