@@ -1,8 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"database/sql"
+	"fmt"
 	_ "github.com/lib/pq"
 )
 
@@ -10,7 +10,7 @@ type Storage interface {
 	CreateAccount(*Account) error
 	DeleteAccount(id int) error
 	UpdateAccount(*Account) error
-	GetAccounts()([]*Account, error)
+	GetAccounts() ([]*Account, error)
 	GetAccountById(id int) (*Account, error)
 }
 
@@ -72,13 +72,27 @@ func (s *PostGressStore) UpdateAccount(*Account) error {
 }
 
 func (s *PostGressStore) DeleteAccount(id int) error {
+	_, err := s.db.Query("delete from accout where id = %1", id)
+
+	if err != nil { 
+		
+	}
+
 	return nil
 }
 
 func (s *PostGressStore) GetAccountById(id int) (*Account, error) {
-	return nil, nil
-}
+	rows, err := s.db.Query("select * from account where id = %1", id)
+	if err != nil {
+		return nil, err
+	}
 
+	for rows.Next() {
+		return scanIntoAccount(rows)
+	}
+
+	return nil, fmt.Errorf("Account %d not found", id)
+}
 
 func (s *PostGressStore) GetAccounts() ([]*Account, error) {
 	rows, err := s.db.Query("select * from account")
@@ -90,15 +104,19 @@ func (s *PostGressStore) GetAccounts() ([]*Account, error) {
 	accounts := []*Account{}
 
 	for rows.Next() {
-		account := new(Account)
-		err := rows.Scan(&account.ID, &account.FirstName, &account.LastName, &account.Number, &account.Balance, &account.CreatedAt)
-
+		account, err := scanIntoAccount(rows)
 		if err != nil {
 			return nil, err
 		}
-	
 		accounts = append(accounts, account)
 	}
 
 	return accounts, nil
+}
+
+func scanIntoAccount(rows *sql.Rows) (*Account, error) {
+	account := new(Account)
+	err := rows.Scan(&account.ID, &account.FirstName, &account.LastName, &account.Number, &account.Balance, &account.CreatedAt)
+
+	return account, err
 }
