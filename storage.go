@@ -12,6 +12,7 @@ type Storage interface {
 	UpdateAccount(*Account) error
 	GetAccounts() ([]*Account, error)
 	GetAccountById(id int) (*Account, error)
+	GetAccountByNumber(number int) (*Account, error)
 }
 
 type PostGressStore struct {
@@ -79,6 +80,19 @@ func (s *PostGressStore) DeleteAccount(id int) error {
 	}
 
 	return nil
+}
+
+func (s *PostGressStore) GetAccountByNumber(number int) (*Account, error) {
+	rows, err := s.db.Query("select * from account where number = %1", number)
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		return scanIntoAccount(rows)
+	}
+
+	return nil, fmt.Errorf("Account with number [%d] not found", number)
 }
 
 func (s *PostGressStore) GetAccountById(id int) (*Account, error) {
