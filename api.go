@@ -3,12 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	jwt "github.com/golang-jwt/jwt/v4"
+	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
-	jwt "github.com/golang-jwt/jwt/v4"
-	"github.com/gorilla/mux"
 )
 
 type ApiServer struct {
@@ -37,15 +37,33 @@ func (s *ApiServer) run() {
 }
 
 func (s *ApiServer) handleLogin(w http.ResponseWriter, r *http.Request) error {
-	if r.Method != "POST"{
+	if r.Method != "POST" {
 		return fmt.Errorf("Method not allowed %s", r.Method)
 	}
-	
-	var req LoginRequest 
-	if err := json.NewDecoder(r.Body).Decode(&req); err!= nil {
-        return err
-    }
-	return WriteJSON(w, http.StatusOK, req)
+
+	var req LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return err
+	}
+
+	acc, err := s.store.GetAccountByNumber(int(req.Number))
+
+	if err != nil {
+		return err
+	}
+
+	if !acc.ValidPassword(req.Password) {
+		fmt.Errorf("Not authenticated")
+	}
+
+	token, err := createJWT(acc)
+	if err != nil {
+		return err
+	}
+
+	resp := LoginResponse{Token: token, Number: acc.Number}
+
+	return WriteJSON(w, http.StatusOK, resp)
 }
 
 func (s *ApiServer) handleAccount(w http.ResponseWriter, r *http.Request) error {
@@ -139,14 +157,13 @@ func (s *ApiServer) handleTransfer(w http.ResponseWriter, r *http.Request) error
 func WriteJSON(w http.ResponseWriter, status int, v any) error {
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(status)
-	
+
 	return json.NewEncoder(w).Encode(v)
 }
 
-
-func createJWT(account *Account) (string , error) {
+func createJWT(account *Account) (string, error) {
 	claims := &jwt.MapClaims{
-		"expiresAt": 15000,
+		"expiresAt":     15000,
 		"accountNumber": account.Number,
 	}
 
@@ -184,7 +201,7 @@ func withJWTAuth(handlerFunc http.HandlerFunc, s Storage) http.HandlerFunc {
 			permissionDenied(w)
 			return
 		}
-		
+
 		claims := token.Claims.(jwt.MapClaims)
 
 		if account.Number != int64(claims["accountNumber"].(float64)) {
@@ -194,7 +211,7 @@ func withJWTAuth(handlerFunc http.HandlerFunc, s Storage) http.HandlerFunc {
 
 		if err != nil {
 			WriteJSON(w, http.StatusForbidden, ApiError{Error: "Invalid token"})
-            return
+			return
 		}
 
 		handlerFunc(w, r)

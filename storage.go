@@ -43,9 +43,10 @@ func (s *PostGressStore) Init() error {
 func (s *PostGressStore) CreateAccountTable() error {
 	query := `create table if not exists account (
 		id serial primary key,
-		first_name varchar(50),
-		last_name varchar(50),
+		first_name varchar(100),
+		last_name varchar(100),
 		number serial,
+		encrypted_password varchar(100),
 		balance serial,
 		created_at timestamp
 	)`
@@ -56,14 +57,12 @@ func (s *PostGressStore) CreateAccountTable() error {
 }
 
 func (s *PostGressStore) CreateAccount(acc *Account) error {
-	query := `insert into account (first-name, last_name, number, balance, created_at) values (%1, %2, %3, %4, %5)`
-	resp, err := s.db.Query(query, acc.FirstName, acc.LastName, acc.Number, acc.Balance)
+	query := `insert into account (first-name, last_name, number, encrypted_password, balance, created_at) values ($1, $2, $3, $4, $5, $6)`
+	_, err := s.db.Query(query, acc.FirstName, acc.EncryptedPassword, acc.LastName, acc.Number, acc.Balance)
 
 	if err != nil {
 		return err
 	}
-
-	fmt.Printf("%+v\n", resp)
 
 	return nil
 }
@@ -75,8 +74,8 @@ func (s *PostGressStore) UpdateAccount(*Account) error {
 func (s *PostGressStore) DeleteAccount(id int) error {
 	_, err := s.db.Query("delete from accout where id = %1", id)
 
-	if err != nil { 
-		
+	if err != nil {
+
 	}
 
 	return nil
@@ -130,7 +129,7 @@ func (s *PostGressStore) GetAccounts() ([]*Account, error) {
 
 func scanIntoAccount(rows *sql.Rows) (*Account, error) {
 	account := new(Account)
-	err := rows.Scan(&account.ID, &account.FirstName, &account.LastName, &account.Number, &account.Balance, &account.CreatedAt)
+	err := rows.Scan(&account.ID, &account.FirstName, &account.LastName, &account.Number, &account.EncryptedPassword, &account.Balance, &account.CreatedAt)
 
 	return account, err
 }
